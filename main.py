@@ -1,19 +1,13 @@
-from preprocessor import Tokenizer
+from preprocessor import create_dataloader
 
 with open("the-verdict.txt", "r") as file:
 
     raw_text = file.read()
 
-tokenizer = Tokenizer()
+dataloader = create_dataloader(raw_text, batch_size=1, max_length=4, stride=1, shuffle=False)
 
-tokenizer.tokenize(raw_text)
-
-text1 = """"The height of his glory"--that was what the women called it. I can hear Mrs. Gideon Thwing--his last Chicago sitter--deploring his unaccountable abdication."""
-text2 = "Hello, do you like tea?"
-
-text = " <|endoftext|> ".join((text1, text2))
-
-ids = tokenizer.encode(text)
-print(ids)
-
-print(tokenizer.decode(ids))
+data_iter = iter(dataloader)
+first_batch = next(data_iter)
+second_batch = next(data_iter)
+print(first_batch)
+print(second_batch)
