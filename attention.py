@@ -12,8 +12,8 @@ class SelfAttention(nn.Module):
 
         self.register_buffer(
             'mask',
-            torch.triu(torch.ones(context_length, context_length)),
-            diagonal=1
+            torch.triu(torch.ones(context_length, context_length),
+            diagonal=1)
         )
 
     def forward(self, x):
@@ -29,7 +29,7 @@ class SelfAttention(nn.Module):
         )
         attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
         attn_weights = self.dropout(attn_weights)
-        
+
         context_vec = attn_weights @ values
 
         return context_vec
@@ -46,6 +46,9 @@ inputs = torch.tensor(
 d_in = inputs.shape[1]
 d_out = 2
 
-torch.manual_seed(789)
-self_attention = SelfAttention(d_in, d_out)
-print(self_attention(inputs))
+torch.manual_seed(123)
+batch = torch.stack((inputs, inputs), dim=0)
+context_length = batch.shape[1]
+casual_attn = SelfAttention(d_in, d_out, context_length, 0.0)
+context_vectors = casual_attn(batch)
+print(f"context vector shape: {context_vectors.shape}")
