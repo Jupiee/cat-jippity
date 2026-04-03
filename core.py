@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import tiktoken
+from attention import MultiHeadAttention
 
 class DummyGPTModel(nn.Module):
     def __init__(self, cfg):
@@ -123,6 +124,40 @@ def print_gradients(model, x):
         if 'weight' in name:
             print(f"{name} has gradient mean of {param.grad.abs().mean().item()}")
 
+class TransformerBlock(nn.Module):
+
+    def __init__(self, cfg):
+        super().__init__()
+        self.att = MultiHeadAttention(
+            d_in=cfg["embedding_dim"],
+            d_out=cfg["embedding_dim"],
+            context_length=cfg["context_length"],
+            num_heads=cfg["n_heads"],
+            dropout=cfg["drop_rate"],
+            qkv_bias=cfg["qkv_bias"]
+        )
+
+        self.ff = FeedForward(cfg)
+        self.norm1 = LayerNorm(cfg["embedding_dim"])
+        self.norm2 = LayerNorm(cfg["embedding_dim"])
+        self.drop_shortcut = nn.Dropout(cfg["drop_rate"])
+
+    def forward(self, x):
+
+        shortcut = x
+        x = self.norm1(x)
+        x = self.att(x)
+        x = self.drop_shortcut(x)
+        x = x + shortcut
+
+        shortcut = x
+        x = self.norm2(x)
+        x = self.ff(x)
+        x = self.drop_shortcut(x)
+        x = x + shortcut
+
+        return x
+
 layer_sizes = [3, 3, 3, 3, 3, 1]
 sample_input = torch.tensor([[1., 0., -1.]])
 torch.manual_seed(123)
@@ -172,3 +207,11 @@ ffn = FeedForward(GPT_CONFIG_124M)
 x = torch.rand(2, 3, 768)
 out = ffn(x)
 print(out.shape)
+
+torch.manual_seed(123)
+x = torch.rand(2, 4, 768)
+block = TransformerBlock(GPT_CONFIG_124M)
+output = block(x)
+
+print(f"Input shape: {x.shape}")
+print(f"Output shape: {output.shape}")
