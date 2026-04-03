@@ -3,16 +3,16 @@ import torch.nn as nn
 import tiktoken
 from attention import MultiHeadAttention
 
-class DummyGPTModel(nn.Module):
+class GPTModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.token_emb = nn.Embedding(cfg["vocab_size"], cfg["embedding_dim"])
         self.positional_emb = nn.Embedding(cfg["context_length"], cfg["embedding_dim"])
         self.dropout_emb = nn.Dropout(cfg["drop_rate"])
         self.trf_blocks = nn.Sequential(
-            *[DummyTransformerBlock(cfg) for _ in range(cfg["n_layers"])]
+            *[TransformerBlock(cfg) for _ in range(cfg["n_layers"])]
         )
-        self.final_norm = DummyLayerNorm(cfg["embedding_dim"])
+        self.final_norm = LayerNorm(cfg["embedding_dim"])
         self.out_head = nn.Linear(cfg["embedding_dim"], cfg["vocab_size"], bias=False)
 
     def forward(self, in_idx):
@@ -28,20 +28,6 @@ class DummyGPTModel(nn.Module):
         logits = self.out_head(x)
 
         return logits
-
-class DummyTransformerBlock(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-
-    def forward(self, x):
-        return x
-
-class DummyLayerNorm(nn.Module):
-    def __init__(self, normalized_shape, eps=1e-5):
-        super().__init__()
-
-    def forward(self, x):
-        return x
     
 class LayerNorm(nn.Module):
     def __init__(self, embedding_dim):
@@ -82,33 +68,6 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
-    
-class ExampleDeepNeuralNetwork(nn.Module):
-
-    def __init__(self, layer_sizes, use_shortcut):
-        super().__init__()
-
-        self.use_shortcut = use_shortcut
-        self.layers = nn.ModuleList([
-            nn.Sequential(nn.Linear(layer_sizes[0], layer_sizes[1]), GELU()),
-            nn.Sequential(nn.Linear(layer_sizes[1], layer_sizes[2]), GELU()),
-            nn.Sequential(nn.Linear(layer_sizes[2], layer_sizes[3]), GELU()),
-            nn.Sequential(nn.Linear(layer_sizes[3], layer_sizes[4]), GELU()),
-            nn.Sequential(nn.Linear(layer_sizes[4], layer_sizes[5]), GELU()),
-        ])
-
-    def forward(self, x):
-
-        for layer in self.layers:
-            layer_output = layer(x)
-
-            if self.use_shortcut and x.shape == layer_output.shape:
-                x = x + layer_output
-            
-            else:
-                x = layer_output
-
-        return x
     
 def print_gradients(model, x):
 
@@ -158,16 +117,6 @@ class TransformerBlock(nn.Module):
 
         return x
 
-layer_sizes = [3, 3, 3, 3, 3, 1]
-sample_input = torch.tensor([[1., 0., -1.]])
-torch.manual_seed(123)
-model_without_shortcut = ExampleDeepNeuralNetwork(layer_sizes, False)
-print_gradients(model_without_shortcut, sample_input)
-
-torch.manual_seed(123)
-model_with_shortcut = ExampleDeepNeuralNetwork(layer_sizes, True)
-print_gradients(model_with_shortcut, sample_input)
-
 tokenizer = tiktoken.get_encoding("gpt2")
 batch =[]
 txt1 = "Every effort moves you"
@@ -188,30 +137,10 @@ GPT_CONFIG_124M = {
     "qkv_bias": False # Query-Key-Value bias
 }
 
-model = DummyGPTModel(GPT_CONFIG_124M)
-logits = model(batch)
-print(f"Output shape: {logits.shape}")
-print(logits)
-
-batch_example = torch.randn(2, 5)
-
-torch.set_printoptions(sci_mode=False)
-ln = LayerNorm(5)
-out_ln = ln(batch_example)
-mean = out_ln.mean(dim=-1, keepdim=True)
-var = out_ln.var(dim=-1, unbiased=False, keepdim=True)
-print(f"Mean:\n{mean}")
-print(f"Variance:\n{var}")
-
-ffn = FeedForward(GPT_CONFIG_124M)
-x = torch.rand(2, 3, 768)
-out = ffn(x)
-print(out.shape)
-
 torch.manual_seed(123)
-x = torch.rand(2, 4, 768)
-block = TransformerBlock(GPT_CONFIG_124M)
-output = block(x)
+model = GPTModel(GPT_CONFIG_124M)
+output = model(batch)
 
-print(f"Input shape: {x.shape}")
+print(f"Input batch: {batch}")
 print(f"Output shape: {output.shape}")
+print(output)
