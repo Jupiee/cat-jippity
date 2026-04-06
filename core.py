@@ -117,6 +117,21 @@ class TransformerBlock(nn.Module):
 
         return x
 
+def generate_text_simple(model, idx, max_new_tokens, context_size):
+
+    for _ in range(max_new_tokens):
+        idx_cond = idx[:, -context_size:]
+
+        with torch.no_grad():
+            logits = model(idx_cond)
+
+        logits = logits[:, -1, :]
+        probas = torch.softmax(logits, dim=-1)
+        idx_next = torch.argmax(probas, dim=-1, keepdim=True)
+        idx = torch.cat((idx, idx_next), dim=-1)
+
+    return idx
+
 tokenizer = tiktoken.get_encoding("gpt2")
 batch =[]
 txt1 = "Every effort moves you"
@@ -141,6 +156,35 @@ torch.manual_seed(123)
 model = GPTModel(GPT_CONFIG_124M)
 output = model(batch)
 
+total_params = sum(p.numel() for p in model.parameters())
+print(f"Total number of parameters: {total_params}")
+print(f"Token embedding layer shape: {model.token_emb.weight.shape}")
+print(f"Output layer shape: {model.out_head.weight.shape}")
+
+total_params_gpt2 = (
+    total_params - sum(p.numel() for p in model.out_head.parameters())
+)
+
+print(f"Number of trainable parameters considering weight tying: {total_params_gpt2:,}")
+
+total_size_bytes = total_params * 4
+total_size_mb = total_size_bytes / (1024 * 1024)
+print(f"Total size of the model: {total_size_mb:.2f} MB")
+
 print(f"Input batch: {batch}")
 print(f"Output shape: {output.shape}")
 print(output)
+
+start_context = "Hello, I am"
+encoded = tokenizer.encode(start_context)
+print(f"encoded: {encoded}")
+encoded_tensor = torch.tensor(encoded).unsqueeze(0)
+print(f"encoded tensor shape: {encoded_tensor.shape}")
+
+model.eval()
+out = generate_text_simple(model, encoded_tensor, 6, GPT_CONFIG_124M["context_length"])
+print(f"Output: {out}")
+print(f"Output length: {len(out[0])}")
+
+decoded_text = tokenizer.decode(out.squeeze(0).tolist())
+print(decoded_text)
